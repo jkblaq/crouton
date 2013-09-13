@@ -431,7 +431,10 @@ fi
 
 # Create the setup script inside the chroot
 echo 'Preparing chroot environment...' 1>&2
-VAREXPAND="s #ARCH $ARCH ;s #MIRROR $MIRROR ;"
+VAREXPAND="s/releases=.*\$/releases=\"\
+`sed 's/$/\\\\/' "$DISTRODIR/releases"`
+\"/;"
+VAREXPAND="${VAREXPAND}s #ARCH $ARCH ;s #MIRROR $MIRROR ;"
 VAREXPAND="${VAREXPAND}s #DISTRO $DISTRO ;s #RELEASE $RELEASE ;"
 VAREXPAND="${VAREXPAND}s #PROXY $PROXY ;s #VERSION $VERSION ;"
 VAREXPAND="${VAREXPAND}s/#SETOPTIONS/$SETOPTIONS/;"
