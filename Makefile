@@ -1,9 +1,11 @@
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2014 The crouton Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 TARGET = crouton
-TARGETTMP = .$(TARGET).tmp
+EXTTARGET = crouton.zip
+SRCTARGETS = $(patsubst src/%.c,crouton%,$(wildcard src/*.c))
+CONTRIBUTORS = CONTRIBUTORS
 WRAPPER = build/wrapper.sh
 SCRIPTS := \
 	$(wildcard chroot-bin/*) \
@@ -13,25 +15,62 @@ SCRIPTS := \
 	$(wildcard installer/*/*) \
 	$(wildcard src/*) \
 	$(wildcard targets/*)
+EXTSOURCES = $(wildcard host-ext/crouton/*)
 GENVERSION = build/genversion.sh
-VERSION = 0
+CONTRIBUTORSSED = build/CONTRIBUTORS.sed
+RELEASE = build/release.sh
+VERSION = 1
 TARPARAMS ?= -j
 
-$(TARGET): $(WRAPPER) $(SCRIPTS) $(GENVERSION) Makefile
-	sed -e "s/\$$TARPARAMS/$(TARPARAMS)/" \
-		-e "s/VERSION=.*/VERSION='$(shell $(GENVERSION) $(VERSION))'/" \
-		$(WRAPPER) > $(TARGETTMP)
-	tar --owner=root --group=root -c $(TARPARAMS) $(SCRIPTS) >> $(TARGETTMP)
-	chmod +x $(TARGETTMP)
-	mv -f $(TARGETTMP) $(TARGET)
+croutoncursor_LIBS = -lX11 -lXfixes -lXrender
+croutonwmtools_LIBS = -lX11
+croutonxi2event_LIBS = -lX11 -lXi
 
-croutoncursor: src/cursor.c Makefile
-	gcc -g -Wall -Werror src/cursor.c -lX11 -lXfixes -lXrender -o croutoncursor
+ifeq ($(wildcard .git/HEAD),)
+    GITHEAD :=
+else
+    GITHEADFILE := .git/refs/heads/$(shell cut -d/ -f3 '.git/HEAD')
+    ifeq ($(wildcard $(GITHEADFILE)),)
+        GITHEAD := .git/HEAD
+    else
+        GITHEAD := .git/HEAD .git/refs/heads/$(shell cut -d/ -f3 '.git/HEAD')
+    endif
+endif
 
-croutonticks: src/ticks.c Makefile
-	gcc -g -Wall -Werror src/ticks.c -lrt -o croutonticks
+
+$(TARGET): $(WRAPPER) $(SCRIPTS) $(GENVERSION) $(GITHEAD) Makefile
+	{ \
+		sed -e "s/\$$TARPARAMS/$(TARPARAMS)/" \
+			-e "s/VERSION=.*/VERSION='$(shell $(GENVERSION) $(VERSION))'/" \
+			$(WRAPPER) \
+		&& tar --owner=root --group=root -c $(TARPARAMS) $(SCRIPTS) \
+		&& chmod +x /dev/stdout \
+	;} > $(TARGET) || ! rm -f $(TARGET)
+
+$(EXTTARGET): $(EXTSOURCES) Makefile
+	rm -f $(EXTTARGET) && zip -q --junk-paths $(EXTTARGET) $(EXTSOURCES)
+
+$(SRCTARGETS): src/$(patsubst crouton%,src/%.c,$@) Makefile
+	gcc -g -Wall -Werror $(patsubst crouton%,src/%.c,$@) $($@_LIBS) -o $@
+
+extension: $(EXTTARGET)
+
+$(CONTRIBUTORS): $(GITHEAD) $(CONTRIBUTORSSED)
+	git shortlog -s | sed -f $(CONTRIBUTORSSED) | sort -u > $(CONTRIBUTORS)
+
+contributors: $(CONTRIBUTORS)
+
+release: $(CONTRIBUTORS) $(TARGET) $(RELEASE)
+	[ ! -d .git ] || git status | grep -q 'working directory clean' || \
+		{ echo "There are uncommitted changes. Aborting!" 1>&2; exit 2; }
+	$(RELEASE) $(TARGET)
+
+force-release: $(CONTRIBUTORS) $(TARGET) $(RELEASE)
+	$(RELEASE) -f $(TARGET)
+
+all: $(TARGET) $(SRCTARGETS) $(EXTTARGET)
 
 clean:
-	rm -f $(TARGETTMP) $(TARGET) croutoncursor croutonticks
+	rm -f $(TARGET) $(EXTTARGET) $(SRCTARGETS)
 
-.PHONY: clean
+.PHONY: all clean contributors extension release force-release

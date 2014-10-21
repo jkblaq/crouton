@@ -1,12 +1,10 @@
-/* Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+/* Copyright (c) 2014 The crouton Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  *
  * Monitors and displays XInput 2 raw events, such as key presses, mouse
  * motion/clicks, etc.
  */
-
-/* gcc xi2event.c -o croutonxi2event -lXi -lX11 */
 
 #include <X11/Xlib.h>
 #include <X11/extensions/XInput.h>

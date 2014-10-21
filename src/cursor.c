@@ -1,4 +1,4 @@
-/* Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+/* Copyright (c) 2014 The crouton Authors. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  *
@@ -41,6 +41,15 @@ static void apply_cursor(Display* d, Window w, XFixesCursorImage *image) {
             cur_cursor = 0;
         }
         return;
+    }
+
+    /* Collapse 64-bit pixels down to 32-bit pixels if needed */
+    if (sizeof(image->pixels[0]) == 8) {
+        int i;
+        int *pixels = (int *) image->pixels;
+        for (i = 0; i < image->width * image->height; ++i) {
+            pixels[i] = pixels[i*2];
+        }
     }
 
     ximage.width = image->width;

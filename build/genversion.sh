@@ -1,5 +1,5 @@
 #!/bin/sh -e
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2014 The crouton Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -19,6 +19,8 @@ if [ -f "$git/HEAD" ]; then
     if [ -n "$source" ]; then
         if [ -f "$git/refs/heads/$source" ]; then
             source="$source:`head -c 8 "$git/refs/heads/$source"`"
+        else
+            source="${source%"${source#????????}"}"
         fi
         source="~$source"
     fi

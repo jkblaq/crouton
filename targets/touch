@@ -1,13 +1,17 @@
 #!/bin/sh -e
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2014 The crouton Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+if [ "$TARGETS" != 'help' -a "$TARGETS" != 'check' ] && \
+        [ "$DISTRO" = 'debian' -o "$DISTRO" = 'kali' ]; then
+    error 99 "touch target is not supported on Debian."
+fi
 REQUIRES='x11'
 DESCRIPTION='Touchscreen and limited generic gesture support.'
 . "${TARGETSDIR:="$PWD"}/common"
 
 ### Append to prepare.sh:
-if [ "$RELEASE" = 'precise' -o "$RELEASE" = 'quantal' ]; then
+if release -lt raring; then
     # As of 2013-01-30, pre-Raring touchegg is useless. Download it manually.
     install_mirror_package 'touchegg' 'pool/universe/t/touchegg'
 else

@@ -1,5 +1,5 @@
 #!/bin/sh -e
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2014 The crouton Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file of the source repository, which has been replicated
 # below for convenience of distribution:
@@ -34,7 +34,12 @@
 # and then runs installer/main.sh with the parameters passed to it.
 # You can pass -x [directory] to extract the contents somewhere.
 
+set -e
+
 VERSION='git'
+
+# Minimum Chromium OS version is R31 stable
+CROS_MIN_VERS=4731
 
 if [ "$1" = '-x' -a "$#" -le 2 ]; then
     # Extract to the specified directory.
@@ -43,7 +48,7 @@ if [ "$1" = '-x' -a "$#" -le 2 ]; then
 else
     # Make a temporary directory and auto-remove it when the script ends.
     SCRIPTDIR="`mktemp -d --tmpdir=/tmp "${0##*/}.XXX"`"
-    TRAP="rm -rf '$SCRIPTDIR';$TRAP"
+    TRAP="rm -rf --one-file-system '$SCRIPTDIR';$TRAP"
     trap "$TRAP" INT HUP 0
 fi
 

@@ -1,17 +1,17 @@
 #!/bin/sh -e
-# Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+# Copyright (c) 2014 The crouton Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Usage: prepare.sh arch mirror distro release proxy version setoptions
-ARCH="${1:-"#ARCH"}"
-# MIRROR may contain variables (e.g., $repo): make sure we do not expand it
-MIRROR=${2:-'#MIRROR'}
-DISTRO="${3:-"#DISTRO"}"
-RELEASE="${4:-"#RELEASE"}"
-PROXY="${5:-"#PROXY"}"
-VERSION="${6:-"#VERSION"}"
-SETOPTIONS="${7:-"#SETOPTIONS"}"
+ARCH='#ARCH#'
+MIRROR='#MIRROR#'
+MIRROR2='#MIRROR2#'
+DISTRO='#DISTRO#'
+RELEASE='#RELEASE#'
+PROXY='#PROXY#'
+VERSION='#VERSION#'
+USERNAME='#USERNAME#'
+SETOPTIONS='#SETOPTIONS#'
 
 # Additional set options: -x or -v can be added for debugging (-e is always on)
 if [ -n "$SETOPTIONS" ]; then
@@ -20,11 +20,6 @@ fi
 
 # We need all paths to do administrative things
 export PATH='/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin'
-
-# Apply the proxy for this script
-if [ ! "$PROXY" = 'unspecified' -a "${PROXY#"#"}" = "$PROXY" ]; then
-    export http_proxy="$PROXY" https_proxy="$PROXY" ftp_proxy="$PROXY"
-fi
 
 # Common functions
 . "`dirname "$0"`/../installer/functions"
@@ -158,13 +153,20 @@ relaunch_setup() {
 
 
 # Fixes the tty keyboard mode. keyboard-configuration puts tty1~6 in UTF8 mode,
-# assuming they are consoles. Since everything other than tty2 can be an X11
-# session, we need to revert those back to RAW. keyboard-configuration could be
-# reconfigured after bootstrap, dpkg --configure -a, or dist-upgrade.
+# assuming they are consoles. This isn't true for Chromium OS and crouton, and
+# X11 sessions need to be in RAW mode. We do the smart thing and revert ttys
+# with X sessions back to RAW.  keyboard-configuration could be reconfigured
+# after bootstrap, dpkg --configure -a, or dist-upgrade.
 fixkeyboardmode() {
     if hash kbd_mode 2>/dev/null; then
-        for tty in 1 3 4 5 6; do
-            kbd_mode -s -C "/dev/tty$tty"
+        for tty in `ps -CX -CXorg -otname=`; do
+            # On some systems, the tty of Chromium OS returns ?
+            if [ "$tty" = "?" ]; then
+                tty='tty1'
+            fi
+            if [ -e "/dev/$tty" ]; then
+                kbd_mode -s -C "/dev/$tty" 2>/dev/null || true
+            fi
         done
     fi
 }
@@ -181,14 +183,13 @@ compile() {
     local out="/usr/local/bin/crouton$1" linker="$2"
     echo "Installing dependencies for $out..." 1>&2
     shift 2
-    local pkgs="gcc libc-dev $*"
-    install --minimal --asdeps $pkgs
+    local pkgs="gcc libc6-dev $*"
+    install --minimal --asdeps $pkgs </dev/null
     echo "Compiling $out..." 1>&2
-    ret=0
-    if ! gcc -xc -Os - $linker -o "$out" || ! strip "$out"; then
-        ret=1
-    fi
-    return $ret
+    local tmp="`mktemp crouton.XXXXXX --tmpdir=/tmp`"
+    addtrap "rm -f '$tmp'"
+    gcc -xc -Os - $linker -o "$tmp"
+    /usr/bin/install -sDT "$tmp" "$out"
 }
 
 
